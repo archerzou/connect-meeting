@@ -1,0 +1,53 @@
+services:
+  calconnect.api:
+    image: ${DOCKER_REGISTRY-}calconnectapi
+    container_name: CalConnect.Api
+    build:
+      context: .
+      dockerfile: CalConnect.Api/Dockerfile
+    depends_on:
+      - calconnect.postgres
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://calconnect.jaeger:4317
+    ports:
+      - 5000:8080
+      - 5001:8081
+
+  calconnect.postgres:
+    image: postgres:latest
+    container_name: CalConnect.PostgreSql
+    environment:
+      - POSTGRES_DB=calconnect
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./.containers/db:/var/lib/postgresql/data
+    ports:
+      - 5437:5432
+
+  calconnect.papercut:
+    image: changemakerstudiosus/papercut-smtp:latest
+    container_name: CalConnect.Papercut
+    ports:
+      - 8080:8080
+      - 25:2525
+
+  calconnect.seq:
+    image: datalust/seq:latest
+    container_name: CalConnect.Seq
+    volumes:
+      - ./.containers/seq:/data
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_NOAUTHENTICATION=true
+    ports:
+      - 5341:5341
+      - 8081:80
+
+  calconnect.jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: CalConnect.Jaeger
+    ports:
+      - 4317:4317
+      - 4318:4318
+      - 16686:16686
