@@ -8,8 +8,7 @@ A meeting/calendar management backend built with **ASP.NET Core (.NET 10)** mini
 
 When a user registers, the verification email is **not** sent inline in the request. Instead it is handed off to a **durable Quartz job** that runs in the background. This keeps the registration request fast and makes email delivery resilient (the job and its triggers are persisted in PostgreSQL, so they survive restarts).
 
-The pattern follows the "durable job + per-request trigger" approach described in
-[Scheduling Background Jobs With Quartz in .NET — Advanced Concepts](https://milanjovanovic.tech/blog/scheduling-background-jobs-with-quartz-in-dotnet-advanced-concepts).
+The pattern follows the "durable job + per-request trigger" approach.
 
 ### The two building blocks
 
@@ -23,7 +22,7 @@ The pattern follows the "durable job + per-request trigger" approach described i
 The job only reads its input from `MergedJobDataMap` and sends the email — it holds no per-user state.
 
 ```csharp
-// Users/Infrastructure/SendVerificationEmailJob.cs
+// src/CalConnect.Api/Users/Infrastructure/SendVerificationEmailJob.cs
 internal sealed class SendVerificationEmailJob(IFluentEmail fluentEmail) : IJob
 {
     internal const string Name = nameof(SendVerificationEmailJob);
@@ -73,15 +72,16 @@ builder.Services.AddQuartz(options =>
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 ```
 
-> The Quartz tables must exist before the app runs. Create them with
-> [`CalConnect.Api/Database/Scripts/create_quartz_schema.sql`](CalConnect.Api/Database/Scripts/create_quartz_schema.sql).
+> The Quartz tables live in the `scheduler` schema. On a fresh database Docker
+> Compose loads them automatically via
+> [`src/CalConnect.Api/Database/Scripts/create_quartz_schema.sql`](src/CalConnect.Api/Database/Scripts/create_quartz_schema.sql).
 
 ### 3. Schedule a trigger per registration
 
 Inside the registration use case, grab a scheduler from `ISchedulerFactory`, build a trigger that targets the durable job by name (`ForJob`), attach the data, and schedule it to run immediately (`StartNow`).
 
 ```csharp
-// Users/RegisterUser.cs (excerpt)
+// src/CalConnect.Api/Users/RegisterUser.cs (excerpt)
 string verificationLink = emailVerificationLinkFactory.Create(verificationToken);
 
 IScheduler scheduler = await schedulerFactory.GetScheduler();
@@ -139,6 +139,7 @@ All routes are minimal-API endpoints registered automatically via the `IEndpoint
 | `GET`  | `/users/verify-email?token={guid}` | Verify an email using the token from the email link. | — (query: `token`) |
 | `POST` | `/users/login` | Log in; returns access + refresh tokens. | `{ email, password }` |
 | `POST` | `/users/refresh-token` | Exchange a refresh token for a new access token. | `{ refreshToken }` |
+| `GET`  | `/users?search={q}` | Search users by name/email (for the participant picker). | — (query: `search`) |
 | `GET`  | `/users/{id:guid}` | Get a user by id. | — |
 | `PUT`  | `/users/{id:guid}` | Update a user's name/email (`id` must match body `Id`). | `{ id, firstName, lastName, email }` |
 | `DELETE` | `/users/{id:guid}/refresh-tokens` | Revoke all refresh tokens for the user. | — |
@@ -147,34 +148,57 @@ All routes are minimal-API endpoints registered automatically via the `IEndpoint
 
 | Method | Route | Description | Request body |
 | --- | --- | --- | --- |
+| `GET`    | `/meetings` | List all meetings (ordered by start time). | — |
+| `GET`    | `/meetings/{id:guid}` | Get a single meeting (agenda + participants). | — |
 | `POST`   | `/meetings` | Create a meeting with participants and agenda items. | `{ title, description, startTime, duration, location, type, participants[], agendaItems[], organizerId }` |
 | `PUT`    | `/meetings/{id:guid}` | Update a meeting (`id` must match body `Id`). | meeting fields |
-| `PATCH`  | `/meetings/{id:guid}/reschedule` | Reschedule a meeting (`id` must match body `Id`). | `{ id, ...new time }` |
+| `PATCH`  | `/meetings/{id:guid}/reschedule` | Reschedule a meeting (`id` must match body `Id`). | `{ id, newStartTime }` |
 | `DELETE` | `/meetings/{id:guid}` | Cancel a meeting. | — |
 | `POST`   | `/meetings/{id}/participants` | Invite a participant to a meeting. | `{ userId, role }` |
 | `DELETE` | `/meetings/{id}/participants/{userId}` | Remove a participant from a meeting. | — |
-| `PUT`    | `/meetings/{id}/participants/{userId}/response` | Update a participant's response (Accepted / Declined / …). | `response` (enum) |
+| `PUT`    | `/meetings/{id}/participants/{userId}/response?response={value}` | Update a participant's RSVP. | — (query: `response`) |
+
+> Enums are serialized as strings (e.g. `"Standard"`, `"Organizer"`, `"Accepted"`) and
+> `duration` fields use the `HH:mm:ss` format. Start times are normalized to UTC on write.
 
 ---
 
+## Project structure
+
+```
+src/
+  CalConnect.Api/      ASP.NET Core minimal-API backend
+  CalConnect.Web/      React + Vite frontend (built & served by nginx in Docker)
+tests/
+  CalConnect.UnitTests/
+docker-compose.yml     full stack: web + api + postgres + papercut + seq + jaeger
+```
+
 ## Running Locally
 
-The `docker-compose.yml` provisions PostgreSQL, Papercut (SMTP catcher), Seq (logs), and Jaeger (traces):
+`docker-compose.yml` builds and runs the whole stack (frontend, API, PostgreSQL,
+Papercut SMTP catcher, Seq logs, Jaeger traces):
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-Then run the API:
+| Service | URL |
+| --- | --- |
+| Web app | http://localhost:4173 |
+| API + Swagger | http://localhost:5000/swagger |
+| Papercut (dev inbox) | http://localhost:8080 |
+| Seq (logs) | http://localhost:8081 |
+| Jaeger (traces) | http://localhost:16686 |
+| PostgreSQL | `localhost:5437` |
+
+Startup is health-gated: Postgres → API (waits for DB healthy, runs EF migrations)
+→ Web (waits for API `/health`). On a fresh database the Quartz schema is loaded
+automatically. Config defaults live in the compose file; copy `.env.example` to
+`.env` to override ports/credentials/JWT.
+
+To run just the API from source (against the compose Postgres):
 
 ```bash
-dotnet run --project CalConnect.Api
+dotnet run --project src/CalConnect.Api
 ```
-
-- Swagger UI: `https://localhost:<port>/swagger`
-- Papercut (view sent verification emails): `http://localhost:8080`
-- Jaeger (traces): `http://localhost:16686`
-
-> Before first run, create the Quartz tables using
-> [`CalConnect.Api/Database/Scripts/create_quartz_schema.sql`](CalConnect.Api/Database/Scripts/create_quartz_schema.sql).
-> The application's own tables are created automatically via EF Core migrations on startup (in Development).

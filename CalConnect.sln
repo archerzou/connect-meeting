@@ -5,7 +5,7 @@ VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{55C58709-424C-4AAC-9EA3-57684A748D07}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CalConnect.Api", "CalConnect.Api\CalConnect.Api.csproj", "{231DC594-4B57-41F5-87E2-40B0BD26C064}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CalConnect.Api", "src\CalConnect.Api\CalConnect.Api.csproj", "{231DC594-4B57-41F5-87E2-40B0BD26C064}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{2DB92D3A-8CD0-49F0-8A19-0DAE585A48C1}"
 EndProject
@@ -17,7 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{8DF32A49-BDE6-47D8-95D9-567B8B2903D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalConnect.UnitTests", "CalConnect.UnitTests\CalConnect.UnitTests.csproj", "{EB019983-173B-4E2E-8C0C-564811C03973}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalConnect.UnitTests", "tests\CalConnect.UnitTests\CalConnect.UnitTests.csproj", "{EB019983-173B-4E2E-8C0C-564811C03973}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

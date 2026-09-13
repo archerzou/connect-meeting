@@ -1,53 +1,97 @@
+name: calconnect
+
 services:
+  calconnect.web:
+    image: ${UI_IMAGE:-calconnect-ui:local}
+    container_name: CalConnect.Web
+    build:
+      context: ./src/CalConnect.Web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://calconnect.api:8080
+    ports:
+      - "${UI_PORT:-4173}:80"
+    depends_on:
+      calconnect.api:
+        condition: service_healthy
+
   calconnect.api:
-    image: ${DOCKER_REGISTRY-}calconnectapi
+    image: ${API_IMAGE:-calconnectapi:local}
     container_name: CalConnect.Api
     build:
       context: .
-      dockerfile: CalConnect.Api/Dockerfile
-    depends_on:
-      - calconnect.postgres
+      dockerfile: src/CalConnect.Api/Dockerfile
+    restart: unless-stopped
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://calconnect.jaeger:4317
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Database: Host=calconnect.postgres;Port=5432;Database=${POSTGRES_DB:-calconnect};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};Include Error Detail=true
+      Jwt__Secret: ${JWT_SECRET:-local-development-secret-change-me-before-deploying-1234567890}
+      Jwt__Issuer: ${JWT_ISSUER:-calconnect}
+      Jwt__Audience: ${JWT_AUDIENCE:-account}
+      Jwt__ExpirationInMinutes: ${JWT_EXPIRATION_MINUTES:-60}
+      Frontend__BaseUrl: http://localhost:${UI_PORT:-4173}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://calconnect.jaeger:4317
     ports:
-      - 5000:8080
-      - 5001:8081
+      - "${API_PORT:-5000}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    depends_on:
+      calconnect.postgres:
+        condition: service_healthy
 
   calconnect.postgres:
-    image: postgres:latest
+    image: postgres:17-alpine
     container_name: CalConnect.PostgreSql
+    restart: unless-stopped
     environment:
-      - POSTGRES_DB=calconnect
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      POSTGRES_DB: ${POSTGRES_DB:-calconnect}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - ./.containers/db:/var/lib/postgresql/data
+      # Auto-create the Quartz scheduler tables on first initialisation of an empty DB.
+      - ./src/CalConnect.Api/Database/Scripts/create_quartz_schema.sql:/docker-entrypoint-initdb.d/10-quartz.sql:ro
     ports:
-      - 5437:5432
+      - "${POSTGRES_PORT:-5437}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-calconnect}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   calconnect.papercut:
     image: changemakerstudiosus/papercut-smtp:latest
     container_name: CalConnect.Papercut
+    restart: unless-stopped
     ports:
-      - 8080:8080
-      - 25:2525
+      - "${PAPERCUT_UI_PORT:-8080}:8080"
+      - "${PAPERCUT_SMTP_PORT:-25}:2525"
 
   calconnect.seq:
     image: datalust/seq:latest
     container_name: CalConnect.Seq
+    restart: unless-stopped
     volumes:
       - ./.containers/seq:/data
     environment:
       - ACCEPT_EULA=Y
       - SEQ_FIRSTRUN_NOAUTHENTICATION=true
     ports:
-      - 5341:5341
-      - 8081:80
+      - "${SEQ_INGEST_PORT:-5341}:5341"
+      - "${SEQ_UI_PORT:-8081}:80"
 
   calconnect.jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: CalConnect.Jaeger
+    restart: unless-stopped
     ports:
-      - 4317:4317
-      - 4318:4318
-      - 16686:16686
+      - "4317:4317"
+      - "4318:4318"
+      - "${JAEGER_UI_PORT:-16686}:16686"
