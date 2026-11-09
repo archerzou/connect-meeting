@@ -1,5 +1,6 @@
 ﻿using CalConnect.Api.Database;
 using CalConnect.Api.Endpoints;
+using CalConnect.Api.Roles.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace CalConnect.Api.Users;
@@ -29,7 +30,7 @@ internal sealed class GetUser(AppDbContext context)
                 return user is not null ? Results.Ok(user) : Results.NotFound();
             })
             .WithTags(UserEndpoints.Tag)
-            .RequireAuthorization();
+            .RequireAuthorization(policy => policy.RequireRole(Role.Member, Role.Admin));
         }
     }
 }

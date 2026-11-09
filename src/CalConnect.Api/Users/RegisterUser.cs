@@ -1,5 +1,6 @@
 ﻿using CalConnect.Api.Database;
 using CalConnect.Api.Endpoints;
+using CalConnect.Api.Roles.Domain;
 using CalConnect.Api.Users.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -33,6 +34,13 @@ internal sealed class RegisterUser(
         };
 
         context.Users.Add(user);
+        
+        var userRole = new UserRole
+        {
+            UserId = user.Id,
+            RoleId = Role.MemberId
+        };
+        context.UserRoles.Add(userRole);
 
         DateTime utcNow = DateTime.UtcNow;
         var verificationToken = new EmailVerificationToken

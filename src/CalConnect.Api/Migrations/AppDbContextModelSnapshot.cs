@@ -17,7 +17,7 @@ namespace CalConnect.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -64,6 +64,58 @@ namespace CalConnect.Api.Migrations
                         .HasName("pk_meetings");
 
                     b.ToTable("meetings", (string)null);
+                });
+
+            modelBuilder.Entity("CalConnect.Api.Roles.Domain.Role", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_roles");
+
+                    b.ToTable("roles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "Admin"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Name = "Member"
+                        });
+                });
+
+            modelBuilder.Entity("CalConnect.Api.Roles.Domain.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("UserId", "RoleId")
+                        .HasName("pk_user_roles");
+
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("ix_user_roles_role_id");
+
+                    b.ToTable("user_roles", (string)null);
                 });
 
             modelBuilder.Entity("CalConnect.Api.Users.EmailVerificationToken", b =>
@@ -176,25 +228,23 @@ namespace CalConnect.Api.Migrations
                 {
                     b.OwnsMany("CalConnect.Api.Meetings.AgendaItem", "AgendaItems", b1 =>
                         {
-                            b1.Property<Guid>("MeetingId")
-                                .HasColumnType("uuid");
+                            b1.Property<Guid>("MeetingId");
 
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer");
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
 
-                            b1.Property<TimeSpan>("Duration")
-                                .HasColumnType("interval");
+                            b1.Property<TimeSpan>("Duration");
 
                             b1.Property<string>("Title")
-                                .IsRequired()
-                                .HasColumnType("text");
+                                .IsRequired();
 
-                            b1.HasKey("MeetingId", "Id");
+                            b1.HasKey("MeetingId", "__synthesizedOrdinal");
 
                             b1.ToTable("meetings");
 
-                            b1.ToJson("agenda_items");
+                            b1
+                                .ToJson("agenda_items")
+                                .HasColumnType("jsonb");
 
                             b1.WithOwner()
                                 .HasForeignKey("MeetingId")
@@ -203,27 +253,24 @@ namespace CalConnect.Api.Migrations
 
                     b.OwnsMany("CalConnect.Api.Meetings.Participant", "Participants", b1 =>
                         {
-                            b1.Property<Guid>("MeetingId")
-                                .HasColumnType("uuid");
+                            b1.Property<Guid>("MeetingId");
 
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer");
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
 
-                            b1.Property<int>("Response")
-                                .HasColumnType("integer");
+                            b1.Property<int>("Response");
 
-                            b1.Property<int>("Role")
-                                .HasColumnType("integer");
+                            b1.Property<int>("Role");
 
-                            b1.Property<Guid>("UserId")
-                                .HasColumnType("uuid");
+                            b1.Property<Guid>("UserId");
 
-                            b1.HasKey("MeetingId", "Id");
+                            b1.HasKey("MeetingId", "__synthesizedOrdinal");
 
                             b1.ToTable("meetings");
 
-                            b1.ToJson("participants");
+                            b1
+                                .ToJson("participants")
+                                .HasColumnType("jsonb");
 
                             b1.WithOwner()
                                 .HasForeignKey("MeetingId")
@@ -233,6 +280,27 @@ namespace CalConnect.Api.Migrations
                     b.Navigation("AgendaItems");
 
                     b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("CalConnect.Api.Roles.Domain.UserRole", b =>
+                {
+                    b.HasOne("CalConnect.Api.Roles.Domain.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_roles_roles_role_id");
+
+                    b.HasOne("CalConnect.Api.Users.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_roles_users_user_id");
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("CalConnect.Api.Users.EmailVerificationToken", b =>

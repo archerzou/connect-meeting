@@ -26,7 +26,7 @@ internal sealed class LoginUser(AppDbContext context, PasswordHasher passwordHas
             throw new ApplicationException("The password is incorrect");
         }
 
-        string token = tokenProvider.Create(user);
+        string token =await tokenProvider.Create(user);
 
         var refreshToken = new RefreshToken
         {

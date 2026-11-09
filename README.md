@@ -1,6 +1,6 @@
 # CalConnect API
 
-A meeting/calendar management backend built with **ASP.NET Core (.NET 10)** minimal APIs, **PostgreSQL** (EF Core + Npgsql), **Quartz.NET** for background jobs, **FluentEmail** for email, and **OpenTelemetry** for observability.
+A meeting/calendar management backend built with **ASP.NET Core (.NET 10)** minimal APIs, **PostgreSQL** (EF Core + Npgsql), **Quartz.NET** for background jobs, **FluentEmail** for email, and **OpenTelemetry** for observability. Access is secured with **JWT bearer authentication and role-based authorization** (`Admin` / `Member`).
 
 ---
 
@@ -127,6 +127,54 @@ User clicks link → GET /users/verify-email?token=... → marks EmailVerified =
 
 ---
 
+## Role-Based Authorization
+
+CalConnect ships a **simple role-based auth system**. Roles are stored in the
+database and embedded into the JWT so endpoints can gate access with
+`RequireRole`.
+
+### How it works
+
+| Piece | Role |
+| --- | --- |
+| `roles` table | Catalog of roles, seeded with `Admin` (id `1`) and `Member` (id `2`) via `RoleConfiguration.HasData`. |
+| `user_roles` table | Many-to-many link between a user and its roles. |
+| `RegisterUser` | Every newly registered user is granted the **`Member`** role automatically. |
+| `TokenProvider` | On login it loads the user's role names and adds a `ClaimTypes.Role` claim per role into the access token. |
+| `RequireRole(...)` | Endpoints declare the roles they accept, e.g. `GetUser` allows `Member`/`Admin`, while the `/roles` endpoints require `Admin`. |
+
+> **Roles live inside the JWT.** A role change only takes effect the next time a
+> token is issued — the user must **log out and log back in** (or let the access
+> token refresh) before the new role applies.
+
+### Promoting a user to Admin
+
+New users are always `Member`. There is no self-service endpoint to grant
+`Admin`; assign it directly in the database (`role_id` `1` = Admin, `2` = Member):
+
+```bash
+# Give a user exactly the Admin role (replace the email).
+docker exec -i CalConnect.PostgreSql psql -U postgres -d calconnect -c "
+  DELETE FROM user_roles
+  WHERE user_id = (SELECT id FROM users WHERE email = 'you@example.com');
+  INSERT INTO user_roles (user_id, role_id)
+  SELECT id, 1 FROM users WHERE email = 'you@example.com';
+"
+```
+
+```bash
+# Verify a user's roles.
+docker exec -i CalConnect.PostgreSql psql -U postgres -d calconnect -c "
+  SELECT u.email, r.name
+  FROM users u
+  JOIN user_roles ur ON ur.user_id = u.id
+  JOIN roles r ON r.id = ur.role_id
+  ORDER BY u.email;
+"
+```
+
+---
+
 ## API Endpoints
 
 All routes are minimal-API endpoints registered automatically via the `IEndpoint` convention. In development, Swagger UI is available at `/swagger`.
@@ -143,6 +191,18 @@ All routes are minimal-API endpoints registered automatically via the `IEndpoint
 | `GET`  | `/users/{id:guid}` | Get a user by id. | — |
 | `PUT`  | `/users/{id:guid}` | Update a user's name/email (`id` must match body `Id`). | `{ id, firstName, lastName, email }` |
 | `DELETE` | `/users/{id:guid}/refresh-tokens` | Revoke all refresh tokens for the user. | — |
+
+> `GET /users/{id}` requires the caller to have the `Member` or `Admin` role.
+
+### Roles (Admin only)
+
+All role endpoints require the caller to have the **`Admin`** role.
+
+| Method | Route | Description | Request body |
+| --- | --- | --- | --- |
+| `GET`  | `/roles` | List all roles. | — |
+| `POST` | `/roles` | Create a new role. | `{ name }` |
+| `PUT`  | `/roles/{id}` | Rename a role (`id` must match body `Id`). | `{ id, name }` |
 
 ### Meetings
 

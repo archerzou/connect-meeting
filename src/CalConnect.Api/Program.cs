@@ -6,6 +6,7 @@ using CalConnect.Api.Endpoints;
 using CalConnect.Api.Exceptions;
 using CalConnect.Api.Extensions;
 using CalConnect.Api.Meetings;
+using CalConnect.Api.Roles;
 using CalConnect.Api.Users;
 using CalConnect.Api.Users.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -48,7 +49,7 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 });
 
 builder.Services.AddSingleton<PasswordHasher>();
-builder.Services.AddSingleton<TokenProvider>();
+builder.Services.AddScoped<TokenProvider>();
 builder.Services.AddScoped<EmailVerificationLinkFactory>();
 
 builder.Services.AddHttpContextAccessor();
@@ -79,6 +80,10 @@ builder.Services.AddScoped<VerifyEmail>();
 builder.Services.AddScoped<GetUser>();
 builder.Services.AddScoped<UpdateUser>();
 builder.Services.AddScoped<SearchUsers>();
+
+builder.Services.AddScoped<GetRoles>();
+builder.Services.AddScoped<CreateRole>();
+builder.Services.AddScoped<UpdateRole>();
 
 builder.Services.AddScoped<GetMeetings>();
 builder.Services.AddScoped<GetMeeting>();
