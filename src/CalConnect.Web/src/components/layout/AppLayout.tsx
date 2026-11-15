@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
-import { LayoutDashboard, Plus, ShieldCheck, User as UserIcon, LogOut, CalendarRange } from "lucide-react"
-import { useAuthStore } from "@/store/auth"
+import { LayoutDashboard, Plus, ShieldCheck, User as UserIcon, Users, LogOut, CalendarRange } from "lucide-react"
+import { useAuthStore, useIsAdmin } from "@/store/auth"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -21,10 +21,16 @@ const nav = [
   { to: "/security", label: "Security", icon: ShieldCheck, end: false },
 ]
 
+// Admin-only entries appended to the sidebar.
+const adminNav = [{ to: "/people", label: "People", icon: Users, end: false }]
+
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
   const clear = useAuthStore((s) => s.clear)
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
+
+  const navItems = isAdmin ? [...nav, ...adminNav] : nav
 
   function logout() {
     clear()
@@ -43,7 +49,7 @@ export function AppLayout() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">
-          {nav.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

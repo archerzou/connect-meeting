@@ -204,6 +204,17 @@ All role endpoints require the caller to have the **`Admin`** role.
 | `POST` | `/roles` | Create a new role. | `{ name }` |
 | `PUT`  | `/roles/{id}` | Rename a role (`id` must match body `Id`). | `{ id, name }` |
 
+### Admin — user management (Admin only)
+
+Backs the **People** admin page in the web app. All endpoints require the
+**`Admin`** role.
+
+| Method | Route | Description | Request body |
+| --- | --- | --- | --- |
+| `GET`    | `/admin/users` | List every user with their roles + verification status. | — |
+| `PUT`    | `/admin/users/{id:guid}/role` | Set a user's role (replaces existing). Cannot target yourself. | `{ role }` (`"Admin"` or `"Member"`) |
+| `DELETE` | `/admin/users/{id:guid}` | Remove a user and their role links / auth tokens. Cannot target yourself. | — |
+
 ### Meetings
 
 | Method | Route | Description | Request body |
