@@ -42,3 +42,22 @@ export function decodeJwt(token: string): Record<string, unknown> | null {
     return null
   }
 }
+
+// The API issues role claims with `ClaimTypes.Role`, which serializes to this URI.
+const ROLE_CLAIM = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+
+/** Read the role names out of an access token (handles single value or array). */
+export function rolesFromToken(token: string | null): string[] {
+  if (!token) return []
+  const claims = decodeJwt(token)
+  if (!claims) return []
+  const raw = claims[ROLE_CLAIM] ?? claims["role"] ?? claims["roles"]
+  if (Array.isArray(raw)) return raw.filter((r): r is string => typeof r === "string")
+  if (typeof raw === "string") return [raw]
+  return []
+}
+
+/** Whether the signed-in user currently holds the Admin role. */
+export function useIsAdmin(): boolean {
+  return useAuthStore((s) => rolesFromToken(s.accessToken).includes("Admin"))
+}

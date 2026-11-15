@@ -80,6 +80,9 @@ builder.Services.AddScoped<VerifyEmail>();
 builder.Services.AddScoped<GetUser>();
 builder.Services.AddScoped<UpdateUser>();
 builder.Services.AddScoped<SearchUsers>();
+builder.Services.AddScoped<GetUsersForAdmin>();
+builder.Services.AddScoped<UpdateUserRole>();
+builder.Services.AddScoped<DeleteUser>();
 
 builder.Services.AddScoped<GetRoles>();
 builder.Services.AddScoped<CreateRole>();

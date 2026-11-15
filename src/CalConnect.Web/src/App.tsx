@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
-import { useAuthStore } from "@/store/auth"
+import { useAuthStore, useIsAdmin } from "@/store/auth"
 import { AppLayout } from "@/components/layout/AppLayout"
 import Login from "@/pages/Login"
 import Register from "@/pages/Register"
@@ -10,10 +10,17 @@ import CreateMeeting from "@/pages/CreateMeeting"
 import MeetingDetail from "@/pages/MeetingDetail"
 import Profile from "@/pages/Profile"
 import Security from "@/pages/Security"
+import People from "@/pages/People"
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const token = useAuthStore((s) => s.accessToken)
   if (!token) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const isAdmin = useIsAdmin()
+  if (!isAdmin) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -42,6 +49,7 @@ export default function App() {
         <Route path="/meetings/:id" element={<MeetingDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/security" element={<Security />} />
+        <Route path="/people" element={<RequireAdmin><People /></RequireAdmin>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
